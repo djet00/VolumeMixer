@@ -1,0 +1,71 @@
+import SwiftUI
+import VolumeMixerCore
+
+struct AppRowView: View {
+    @EnvironmentObject private var engine: AudioEngine
+    let app: AudioApp
+
+    @State private var slider: Double = 1
+    @State private var level: Float = 0
+
+    private let vuTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                if let icon = app.icon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 18, height: 18)
+                }
+                Text(app.name)
+                    .font(.callout)
+                    .lineLimit(1)
+                Spacer()
+                if !engine.hasController(for: app) {
+                    Text("нет доступа")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else {
+                    Button {
+                        engine.setMuted(!engine.isMuted(app), for: app)
+                    } label: {
+                        Image(systemName: engine.isMuted(app) ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .foregroundStyle(engine.isMuted(app) ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if engine.hasController(for: app) {
+                HStack(spacing: 8) {
+                    Slider(value: $slider, in: 0...1)
+                        .onChange(of: slider) { _, v in
+                            engine.setVolume(Float(v), for: app)
+                        }
+                        .disabled(engine.isMuted(app))
+                    Text("\(Int(slider * 100))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 36, alignment: .trailing)
+                }
+
+                // VU-метр: перцептивная шкала (sqrt), сглаживание — в контроллере
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(.quaternary)
+                        Capsule()
+                            .fill(engine.isMuted(app) ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.tint))
+                            .frame(width: geo.size.width * CGFloat(min(sqrt(level), 1)))
+                    }
+                }
+                .frame(height: 3)
+                .onReceive(vuTimer) { _ in
+                    level = engine.level(for: app)
+                }
+            }
+        }
+        .opacity(engine.isMuted(app) ? 0.55 : 1)
+        .onAppear { slider = Double(engine.volume(for: app)) }
+    }
+}
