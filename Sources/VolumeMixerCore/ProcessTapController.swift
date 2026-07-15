@@ -29,26 +29,26 @@ public final class ProcessTapController: @unchecked Sendable {
         state.gainBits.store(min(max(gain, 0), 1).bitPattern, ordering: .relaxed)
     }
 
-    public init(app: AudioApp, initialGain: Float) throws {
-        self.pid = app.id
-        self.ioQueue = DispatchQueue(label: "mixer.io.\(app.id)", qos: .userInteractive)
+    public init(process proc: AudioProcess, initialGain: Float) throws {
+        self.pid = proc.pid
+        self.ioQueue = DispatchQueue(label: "mixer.io.\(proc.pid)", qos: .userInteractive)
         self.state = MixState(gain: min(max(initialGain, 0), 1))
 
         // 1. Muted-tap: система глушит оригинальный вывод процесса, поток отдаёт нам
-        let desc = CATapDescription(stereoMixdownOfProcesses: [app.objectID])
-        desc.name = "Микшер: \(app.name)"
+        let desc = CATapDescription(stereoMixdownOfProcesses: [proc.objectID])
+        desc.name = "Микшер: \(proc.name)"
         desc.muteBehavior = .mutedWhenTapped
         desc.isPrivate = true
         var tap = AudioObjectID.unknown
-        try checkErr(AudioHardwareCreateProcessTap(desc, &tap), "create tap for \(app.name)")
+        try checkErr(AudioHardwareCreateProcessTap(desc, &tap), "create tap for \(proc.name)")
         tapID = tap
 
         do {
             // 2. Приватный агрегат: текущее устройство вывода + наш tap
             let outputUID = try SystemVolume.defaultOutputDeviceUID()
             let description: [String: Any] = [
-                kAudioAggregateDeviceNameKey: "Микшер-\(app.id)",
-                kAudioAggregateDeviceUIDKey: "ru.mikhail.VolumeMixer.agg.\(app.id).\(desc.uuid.uuidString)",
+                kAudioAggregateDeviceNameKey: "Микшер-\(proc.pid)",
+                kAudioAggregateDeviceUIDKey: "ru.mikhail.VolumeMixer.agg.\(proc.pid).\(desc.uuid.uuidString)",
                 kAudioAggregateDeviceMainSubDeviceKey: outputUID,
                 kAudioAggregateDeviceIsPrivateKey: true,
                 kAudioAggregateDeviceIsStackedKey: false,

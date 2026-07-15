@@ -6,18 +6,30 @@ struct MixerPanelView: View {
     @State private var masterVolume: Double = Double(SystemVolume.getVolume() ?? 0.5)
     @State private var editingMaster = false
 
+    private var playing: [AudioApp] { engine.apps.filter(\.isPlaying) }
+    private var silent: [AudioApp] { engine.apps.filter { !$0.isPlaying } }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !engine.permissionGranted {
                 OnboardingView()
             } else if engine.apps.isEmpty {
-                Text("Сейчас ни одно приложение не воспроизводит звук")
+                Text("Приложений со звуком пока нет")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 16)
             } else {
-                ForEach(engine.apps) { app in
-                    AppRowView(app: app)
+                if !playing.isEmpty {
+                    sectionHeader("Сейчас играют")
+                    ForEach(playing) { app in
+                        AppRowView(app: app)
+                    }
+                }
+                if !silent.isEmpty {
+                    sectionHeader("Молчат")
+                    ForEach(silent) { app in
+                        AppRowView(app: app)
+                    }
                 }
             }
 
@@ -56,5 +68,12 @@ struct MixerPanelView: View {
                 masterVolume = Double(v)
             }
         }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .textCase(.uppercase)
     }
 }

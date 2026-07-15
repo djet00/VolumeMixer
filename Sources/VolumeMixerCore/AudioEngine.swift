@@ -8,6 +8,7 @@ public final class AudioEngine: ObservableObject {
     @Published public private(set) var permissionGranted = true
 
     private var controllers: [pid_t: ProcessTapController] = [:]
+    private var playingProcesses: [AudioProcess] = []
     private let monitor = AudioProcessMonitor()
     private let settings: SettingsStore
     private var deviceListener: PropertyListener?
@@ -22,8 +23,8 @@ public final class AudioEngine: ObservableObject {
         started = true
         permissionGranted = AudioPermission.preflight()
 
-        monitor.onChange = { [weak self] apps in
-            Task { @MainActor in self?.sync(apps) }
+        monitor.onChange = { [weak self] processes in
+            Task { @MainActor in self?.sync(processes) }
         }
         monitor.start()
 
@@ -41,7 +42,7 @@ public final class AudioEngine: ObservableObject {
         if permissionGranted { rebuildAll() }
     }
 
-    // MARK: - Управление
+    // MARK: - Управление (по приложению, т.е. по bundle ID)
 
     public func setVolume(_ slider: Float, for app: AudioApp) {
         var s = settings.settings(for: app.bundleID)
@@ -60,46 +61,60 @@ public final class AudioEngine: ObservableObject {
 
     public func volume(for app: AudioApp) -> Float { settings.settings(for: app.bundleID).volume }
     public func isMuted(_ app: AudioApp) -> Bool { settings.settings(for: app.bundleID).muted }
-    public func level(for app: AudioApp) -> Float { controllers[app.id]?.level ?? 0 }
-    public func hasController(for app: AudioApp) -> Bool { controllers[app.id] != nil }
+
+    /// Уровень VU приложения — максимум по его играющим процессам.
+    public func level(for app: AudioApp) -> Float {
+        app.processes.compactMap { controllers[$0.pid]?.level }.max() ?? 0
+    }
+
+    /// true, если у играющего приложения не удалось создать ни одного tap'а.
+    public func tapFailed(for app: AudioApp) -> Bool {
+        app.isPlaying && !app.processes.contains { controllers[$0.pid] != nil }
+    }
 
     // MARK: - Внутреннее
 
-    private func sync(_ newApps: [AudioApp]) {
-        guard newApps != apps else { return } // поллинг: без изменений не публикуем
-        let diff = ProcessDiff.between(old: apps, new: newApps)
-        for app in diff.removed {
-            NSLog("Микшер: − %@ (pid %d)", app.name, app.id)
-            controllers[app.id]?.invalidate()
-            controllers[app.id] = nil
+    private func sync(_ processes: [AudioProcess]) {
+        let playing = processes.filter(\.isPlaying)
+        let diff = ProcessDiff.between(old: playingProcesses, new: playing)
+        for proc in diff.removed {
+            NSLog("Микшер: − %@ (pid %d)", proc.name, proc.pid)
+            controllers[proc.pid]?.invalidate()
+            controllers[proc.pid] = nil
         }
-        for app in diff.added {
-            createController(for: app)
+        for proc in diff.added {
+            createController(for: proc)
         }
-        apps = newApps
+        playingProcesses = playing
+
+        let grouped = AudioApp.grouped(from: processes)
+        if grouped != apps { apps = grouped }
     }
 
-    private func createController(for app: AudioApp) {
-        let s = settings.settings(for: app.bundleID)
+    private func createController(for proc: AudioProcess) {
+        let s = settings.settings(for: proc.bundleID)
         let gain = s.muted ? 0 : VolumeCurve.gain(fromSlider: s.volume)
         do {
-            controllers[app.id] = try ProcessTapController(app: app, initialGain: gain)
-            NSLog("Микшер: + %@ (pid %d, oid %u)", app.name, app.id, app.objectID)
+            controllers[proc.pid] = try ProcessTapController(process: proc, initialGain: gain)
+            NSLog("Микшер: + %@ (pid %d, oid %u)", proc.name, proc.pid, proc.objectID)
         } catch {
-            NSLog("Микшер: не удалось создать tap для \(app.name): \(error)")
+            NSLog("Микшер: не удалось создать tap для %@: %@", proc.name, "\(error)")
             permissionGranted = AudioPermission.preflight()
         }
     }
 
     private func applyGain(for app: AudioApp) {
         let s = settings.settings(for: app.bundleID)
-        controllers[app.id]?.setGain(s.muted ? 0 : VolumeCurve.gain(fromSlider: s.volume))
+        let gain = s.muted ? 0 : VolumeCurve.gain(fromSlider: s.volume)
+        for proc in app.processes {
+            controllers[proc.pid]?.setGain(gain)
+        }
     }
 
     private func rebuildAll() {
-        let current = apps
+        let current = playingProcesses
         for (_, c) in controllers { c.invalidate() }
         controllers = [:]
-        for app in current { createController(for: app) }
+        for proc in current { createController(for: proc) }
     }
 }

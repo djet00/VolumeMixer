@@ -1,15 +1,15 @@
 import CoreAudio
 import AppKit
 
-/// Следит за списком аудиопроцессов CoreAudio и отдаёт те, что сейчас
-/// воспроизводят звук, в виде [AudioApp] (без собственного процесса).
+/// Следит за списком аудиопроцессов CoreAudio: и играющих, и «спящих»
+/// (аудиосессия открыта, звука нет). Без собственного процесса.
 ///
 /// Важно: события изменения kAudioProcessPropertyIsRunningOutput система
 /// не доставляет (проверено экспериментально), поэтому основа — поллинг
 /// раз в 1.5 с. Листенер списка процессов остаётся для мгновенной
 /// реакции на появление/уход самих процессов.
 public final class AudioProcessMonitor {
-    public var onChange: (([AudioApp]) -> Void)?
+    public var onChange: (([AudioProcess]) -> Void)?
 
     private var listListener: PropertyListener?
     private var pollTimer: Timer?
@@ -40,24 +40,29 @@ public final class AudioProcessMonitor {
         listListener = nil
     }
 
-    public func currentApps() -> [AudioApp] {
+    public func currentProcesses() -> [AudioProcess] {
         let objectIDs = (try? AudioObjectID.system.readObjectIDs(kAudioHardwarePropertyProcessObjectList)) ?? []
-        var apps: [AudioApp] = []
+        var processes: [AudioProcess] = []
 
         for oid in objectIDs {
             guard let pid = try? oid.readInt32(kAudioProcessPropertyPID), pid != ownPID else { continue }
-            guard let running = try? oid.readUInt32(kAudioProcessPropertyIsRunningOutput), running == 1 else { continue }
+            let isPlaying = ((try? oid.readUInt32(kAudioProcessPropertyIsRunningOutput)) ?? 0) == 1
             guard let app = NSRunningApplication(processIdentifier: pid) ?? responsibleApp(for: pid),
                   let bundleID = app.bundleID_nonEmpty else { continue }
-            apps.append(AudioApp(
-                id: pid,
+            // Молчащие показываем только для обычных приложений: иначе в списке
+            // повиснут системные демоны (ControlCenter, loginwindow и т.п.).
+            // Играющее показываем всегда — раз шумит, надо уметь приглушить.
+            guard isPlaying || app.activationPolicy == .regular else { continue }
+            processes.append(AudioProcess(
+                pid: pid,
                 objectID: oid,
                 bundleID: bundleID,
                 name: app.localizedName ?? bundleID,
-                icon: app.icon
+                icon: app.icon,
+                isPlaying: isPlaying
             ))
         }
-        return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return processes
     }
 
     /// Хелперы Chrome и подобных: сам процесс — не приложение,
@@ -82,7 +87,7 @@ public final class AudioProcessMonitor {
     }
 
     private func refresh() {
-        onChange?(currentApps())
+        onChange?(currentProcesses())
     }
 }
 

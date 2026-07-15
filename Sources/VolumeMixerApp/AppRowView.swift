@@ -17,12 +17,14 @@ struct AppRowView: View {
                     Image(nsImage: icon)
                         .resizable()
                         .frame(width: 18, height: 18)
+                        .saturation(app.isPlaying ? 1 : 0.4)
                 }
                 Text(app.name)
                     .font(.callout)
                     .lineLimit(1)
+                    .foregroundStyle(app.isPlaying ? .primary : .secondary)
                 Spacer()
-                if !engine.hasController(for: app) {
+                if engine.tapFailed(for: app) {
                     Text("нет доступа")
                         .font(.caption2)
                         .foregroundStyle(.orange)
@@ -37,7 +39,7 @@ struct AppRowView: View {
                 }
             }
 
-            if engine.hasController(for: app) {
+            if !engine.tapFailed(for: app) {
                 HStack(spacing: 8) {
                     Slider(value: $slider, in: 0...1)
                         .onChange(of: slider) { _, v in
@@ -50,18 +52,20 @@ struct AppRowView: View {
                         .frame(width: 36, alignment: .trailing)
                 }
 
-                // VU-метр: перцептивная шкала (sqrt), сглаживание — в контроллере
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.quaternary)
-                        Capsule()
-                            .fill(engine.isMuted(app) ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.tint))
-                            .frame(width: geo.size.width * CGFloat(min(sqrt(level), 1)))
+                if app.isPlaying {
+                    // VU-метр: перцептивная шкала (sqrt), сглаживание — в контроллере
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.quaternary)
+                            Capsule()
+                                .fill(engine.isMuted(app) ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.tint))
+                                .frame(width: geo.size.width * CGFloat(min(sqrt(level), 1)))
+                        }
                     }
-                }
-                .frame(height: 3)
-                .onReceive(vuTimer) { _ in
-                    level = engine.level(for: app)
+                    .frame(height: 3)
+                    .onReceive(vuTimer) { _ in
+                        level = engine.level(for: app)
+                    }
                 }
             }
         }
