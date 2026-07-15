@@ -3,11 +3,16 @@ import AppKit
 
 /// Следит за списком аудиопроцессов CoreAudio и отдаёт те, что сейчас
 /// воспроизводят звук, в виде [AudioApp] (без собственного процесса).
+///
+/// Важно: события изменения kAudioProcessPropertyIsRunningOutput система
+/// не доставляет (проверено экспериментально), поэтому основа — поллинг
+/// раз в 1.5 с. Листенер списка процессов остаётся для мгновенной
+/// реакции на появление/уход самих процессов.
 public final class AudioProcessMonitor {
     public var onChange: (([AudioApp]) -> Void)?
 
     private var listListener: PropertyListener?
-    private var perProcessListeners: [AudioObjectID: PropertyListener] = [:]
+    private var pollTimer: Timer?
     private var refreshScheduled = false
     private let ownPID = getpid()
 
@@ -18,23 +23,28 @@ public final class AudioProcessMonitor {
             objectID: .system,
             selector: kAudioHardwarePropertyProcessObjectList
         ) { [weak self] in self?.scheduleRefresh() }
+
+        let timer = Timer(timeInterval: 1.5, repeats: true) { [weak self] _ in
+            self?.refresh()
+        }
+        timer.tolerance = 0.3
+        RunLoop.main.add(timer, forMode: .common)
+        pollTimer = timer
+
         refresh()
+    }
+
+    public func stop() {
+        pollTimer?.invalidate()
+        pollTimer = nil
+        listListener = nil
     }
 
     public func currentApps() -> [AudioApp] {
         let objectIDs = (try? AudioObjectID.system.readObjectIDs(kAudioHardwarePropertyProcessObjectList)) ?? []
         var apps: [AudioApp] = []
-        var seenObjects = Set<AudioObjectID>()
 
         for oid in objectIDs {
-            seenObjects.insert(oid)
-            // Подписка на старт/стоп вывода каждого процесса
-            if perProcessListeners[oid] == nil {
-                perProcessListeners[oid] = PropertyListener(
-                    objectID: oid,
-                    selector: kAudioProcessPropertyIsRunningOutput
-                ) { [weak self] in self?.scheduleRefresh() }
-            }
             guard let pid = try? oid.readInt32(kAudioProcessPropertyPID), pid != ownPID else { continue }
             guard let running = try? oid.readUInt32(kAudioProcessPropertyIsRunningOutput), running == 1 else { continue }
             guard let app = NSRunningApplication(processIdentifier: pid) ?? responsibleApp(for: pid),
@@ -47,7 +57,6 @@ public final class AudioProcessMonitor {
                 icon: app.icon
             ))
         }
-        perProcessListeners = perProcessListeners.filter { seenObjects.contains($0.key) }
         return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 

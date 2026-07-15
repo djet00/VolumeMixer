@@ -66,8 +66,10 @@ public final class AudioEngine: ObservableObject {
     // MARK: - Внутреннее
 
     private func sync(_ newApps: [AudioApp]) {
+        guard newApps != apps else { return } // поллинг: без изменений не публикуем
         let diff = ProcessDiff.between(old: apps, new: newApps)
         for app in diff.removed {
+            NSLog("Микшер: − %@ (pid %d)", app.name, app.id)
             controllers[app.id]?.invalidate()
             controllers[app.id] = nil
         }
@@ -82,6 +84,7 @@ public final class AudioEngine: ObservableObject {
         let gain = s.muted ? 0 : VolumeCurve.gain(fromSlider: s.volume)
         do {
             controllers[app.id] = try ProcessTapController(app: app, initialGain: gain)
+            NSLog("Микшер: + %@ (pid %d, oid %u)", app.name, app.id, app.objectID)
         } catch {
             NSLog("Микшер: не удалось создать tap для \(app.name): \(error)")
             permissionGranted = AudioPermission.preflight()

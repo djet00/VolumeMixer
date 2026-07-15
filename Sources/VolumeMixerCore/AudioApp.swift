@@ -27,11 +27,14 @@ public struct ProcessDiff: Equatable {
     public let removed: [AudioApp]
 
     public static func between(old: [AudioApp], new: [AudioApp]) -> ProcessDiff {
-        let oldIDs = Set(old.map(\.id))
-        let newIDs = Set(new.map(\.id))
+        // Ключ — пара (pid, objectID): CoreAudio может пересоздать объект
+        // процесса с тем же pid, тогда старый tap мёртв и контроллер
+        // нужно пересоздать (remove + add).
+        let oldKeys = Set(old.map { "\($0.id):\($0.objectID)" })
+        let newKeys = Set(new.map { "\($0.id):\($0.objectID)" })
         return ProcessDiff(
-            added: new.filter { !oldIDs.contains($0.id) },
-            removed: old.filter { !newIDs.contains($0.id) }
+            added: new.filter { !oldKeys.contains("\($0.id):\($0.objectID)") },
+            removed: old.filter { !newKeys.contains("\($0.id):\($0.objectID)") }
         )
     }
 }
