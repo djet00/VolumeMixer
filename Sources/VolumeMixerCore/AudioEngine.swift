@@ -6,6 +6,7 @@ import CoreAudio
 public final class AudioEngine: ObservableObject {
     @Published public private(set) var apps: [AudioApp] = []
     @Published public private(set) var permissionGranted = true
+    @Published public private(set) var sections = AppListSections()
 
     private var controllers: [pid_t: ProcessTapController] = [:]
     private var playingProcesses: [AudioProcess] = []
@@ -13,6 +14,7 @@ public final class AudioEngine: ObservableObject {
     private let settings: SettingsStore
     private var deviceListener: PropertyListener?
     private var started = false
+    private var orderState = PlayingOrderState()
 
     public init(settings: SettingsStore = SettingsStore()) {
         self.settings = settings
@@ -57,6 +59,7 @@ public final class AudioEngine: ObservableObject {
         settings.set(s, for: app.bundleID)
         applyGain(for: app)
         objectWillChange.send()
+        relayout()
     }
 
     public func volume(for app: AudioApp) -> Float { settings.settings(for: app.bundleID).volume }
@@ -65,6 +68,51 @@ public final class AudioEngine: ObservableObject {
     /// Уровень VU приложения — максимум по его играющим процессам.
     public func level(for app: AudioApp) -> Float {
         app.processes.compactMap { controllers[$0.pid]?.level }.max() ?? 0
+    }
+
+    public func audibleLevel(for app: AudioApp) -> Float {
+        AppListLayout.audibleLevel(level: level(for: app), muted: isMuted(app))
+    }
+
+    public func canPin(_ app: AudioApp) -> Bool {
+        settings.canPin(bundleID: app.bundleID)
+    }
+
+    @discardableResult
+    public func pin(_ app: AudioApp) -> Bool {
+        let ok = settings.pin(bundleID: app.bundleID, name: app.name)
+        if ok { relayout() }
+        return ok
+    }
+
+    public func unpin(bundleID: String) {
+        settings.unpin(bundleID: bundleID)
+        relayout()
+    }
+
+    public func movePinned(bundleID: String, direction: PinMoveDirection) {
+        settings.movePinned(bundleID: bundleID, direction: direction)
+        relayout()
+    }
+
+    public func relayout(now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        let pinnedIDs = settings.pinnedBundleIDs
+        let pinnedIDSet = Set(pinnedIDs)
+        var audibleLevels: [String: Float] = [:]
+        for app in apps where app.isPlaying && !pinnedIDSet.contains(app.bundleID) {
+            audibleLevels[app.bundleID] = audibleLevel(for: app)
+        }
+
+        let result = AppListLayout.layout(
+            apps: apps,
+            pinnedIDs: pinnedIDs,
+            audibleLevels: audibleLevels,
+            metadataName: { settings.pinMetadata(for: $0)?.name },
+            state: orderState,
+            now: now
+        )
+        orderState = result.1
+        if result.0 != sections { sections = result.0 }
     }
 
     /// true, если у играющего приложения не удалось создать ни одного tap'а.
@@ -89,6 +137,12 @@ public final class AudioEngine: ObservableObject {
 
         let grouped = AudioApp.grouped(from: processes)
         if grouped != apps { apps = grouped }
+
+        let pinnedIDs = Set(settings.pinnedBundleIDs)
+        for app in grouped where pinnedIDs.contains(app.bundleID) {
+            settings.updatePinMetadata(bundleID: app.bundleID, name: app.name)
+        }
+        relayout()
     }
 
     private func createController(for proc: AudioProcess) {

@@ -5,30 +5,48 @@ struct MixerPanelView: View {
     @EnvironmentObject private var engine: AudioEngine
     @State private var masterVolume: Double = Double(SystemVolume.getVolume() ?? 0.5)
     @State private var editingMaster = false
+    @State private var panelOpen = false
 
-    private var playing: [AudioApp] { engine.apps.filter(\.isPlaying) }
-    private var silent: [AudioApp] { engine.apps.filter { !$0.isPlaying } }
+    private let layoutTimer = Timer.publish(
+        every: 1.0 / 30.0,
+        on: .main,
+        in: .common
+    ).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !engine.permissionGranted {
                 OnboardingView()
-            } else if engine.apps.isEmpty {
+            } else if engine.sections.pinned.isEmpty
+                        && engine.sections.playing.isEmpty
+                        && engine.sections.silent.isEmpty
+            {
                 Text("Приложений со звуком пока нет")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 16)
             } else {
-                if !playing.isEmpty {
-                    sectionHeader("Сейчас играют")
-                    ForEach(playing) { app in
-                        AppRowView(app: app)
+                if !engine.sections.pinned.isEmpty {
+                    sectionHeader("Закреплённые")
+                    ForEach(engine.sections.pinned) { item in
+                        switch item {
+                        case .live(let app):
+                            AppRowView(app: app, isPinned: true)
+                        case .ghost(let bundleID, let name):
+                            GhostAppRowView(bundleID: bundleID, name: name)
+                        }
                     }
                 }
-                if !silent.isEmpty {
+                if !engine.sections.playing.isEmpty {
+                    sectionHeader("Сейчас играют")
+                    ForEach(engine.sections.playing) { app in
+                        AppRowView(app: app, isPinned: false)
+                    }
+                }
+                if !engine.sections.silent.isEmpty {
                     sectionHeader("Молчат")
-                    ForEach(silent) { app in
-                        AppRowView(app: app)
+                    ForEach(engine.sections.silent) { app in
+                        AppRowView(app: app, isPinned: false)
                     }
                 }
             }
@@ -69,6 +87,16 @@ struct MixerPanelView: View {
         }
         .padding(12)
         .frame(width: 320)
+        .onAppear {
+            panelOpen = true
+            engine.relayout()
+        }
+        .onDisappear { panelOpen = false }
+        .onReceive(layoutTimer) { _ in
+            if panelOpen {
+                engine.relayout()
+            }
+        }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             if !editingMaster, let v = SystemVolume.getVolume() {
                 masterVolume = Double(v)
