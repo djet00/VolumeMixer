@@ -108,8 +108,9 @@ git clone https://github.com/djet00/VolumeMixer.git && cd VolumeMixer
 
 ## 📄 Лицензия и авторы
 
-[MIT](LICENSE). Сделал [@djet00](https://github.com/djet00) в паре с Claude Code.
-DMG собирается [create-dmg](https://github.com/create-dmg/create-dmg).
+- **Лицензия:** [MIT](LICENSE)
+- **Автор:** [@djet00](https://github.com/djet00) · Telegram — [@djet_00](https://t.me/djet_00)
+- **Благодарности:** DMG собирается инструментом [create-dmg](https://github.com/create-dmg/create-dmg)
 
 ---
 
