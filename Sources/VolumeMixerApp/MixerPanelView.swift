@@ -50,11 +50,17 @@ struct MixerPanelView: View {
                     .frame(width: 36, alignment: .trailing)
             }
 
-            HStack {
-                Text("Микшер громкости")
+            HStack(spacing: 12) {
+                Text("Микшер громкости \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                 Spacer()
+                Button("Обратная связь") {
+                    NSWorkspace.shared.open(URL(string: "https://github.com/djet00/VolumeMixer/issues/new/choose")!)
+                }
+                .buttonStyle(.plain)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
                 Button("Выйти") { NSApp.terminate(nil) }
                     .buttonStyle(.plain)
                     .font(.caption2)

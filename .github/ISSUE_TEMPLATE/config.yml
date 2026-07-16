@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "💛 Сказать спасибо или просто поговорить"
+    url: https://github.com/djet00/VolumeMixer/discussions
+    about: "Благодарности, вопросы, идеи без оформления — в Discussions"
