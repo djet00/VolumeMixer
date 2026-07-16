@@ -16,6 +16,16 @@ public final class AudioProcessMonitor {
     private var refreshScheduled = false
     private let ownPID = getpid()
 
+    /// «Ответственный процесс» (SPI из libsystem): для XPC-сервисов вроде
+    /// com.apple.WebKit.GPU («Safari Graphics and Media») возвращает pid
+    /// приложения-хозяина — Safari. Родительская цепочка тут не помогает:
+    /// XPC-сервисы порождаются launchd.
+    private typealias ResponsiblePIDFn = @convention(c) (pid_t) -> pid_t
+    private static let responsiblePIDFn: ResponsiblePIDFn? = {
+        guard let sym = dlsym(dlopen(nil, RTLD_NOW), "responsibility_get_pid_responsible_for_pid") else { return nil }
+        return unsafeBitCast(sym, to: ResponsiblePIDFn.self)
+    }()
+
     public init() {}
 
     public func start() {
@@ -47,7 +57,7 @@ public final class AudioProcessMonitor {
         for oid in objectIDs {
             guard let pid = try? oid.readInt32(kAudioProcessPropertyPID), pid != ownPID else { continue }
             let isPlaying = ((try? oid.readUInt32(kAudioProcessPropertyIsRunningOutput)) ?? 0) == 1
-            guard let app = NSRunningApplication(processIdentifier: pid) ?? responsibleApp(for: pid),
+            guard let app = attributedApp(for: pid),
                   let bundleID = app.bundleID_nonEmpty else { continue }
             // Молчащие показываем только для обычных приложений: иначе в списке
             // повиснут системные демоны (ControlCenter, loginwindow и т.п.).
@@ -63,6 +73,21 @@ public final class AudioProcessMonitor {
             ))
         }
         return processes
+    }
+
+    /// Кому приписать аудиопроцесс, по убыванию точности:
+    /// 1) «ответственное» приложение (XPC-сервисы Safari/Mail и т.п.);
+    /// 2) сам процесс, если он — приложение;
+    /// 3) подъём по цепочке родителей (хелперы Chromium-браузеров).
+    private func attributedApp(for pid: pid_t) -> NSRunningApplication? {
+        if let responsiblePID = Self.responsiblePIDFn?(pid), responsiblePID > 0, responsiblePID != pid,
+           let host = NSRunningApplication(processIdentifier: responsiblePID), host.bundleID_nonEmpty != nil {
+            return host
+        }
+        if let own = NSRunningApplication(processIdentifier: pid), own.bundleID_nonEmpty != nil {
+            return own
+        }
+        return responsibleApp(for: pid)
     }
 
     /// Хелперы Chrome и подобных: сам процесс — не приложение,
