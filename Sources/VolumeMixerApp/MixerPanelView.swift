@@ -1,7 +1,10 @@
 import SwiftUI
+import Sparkle
 import VolumeMixerCore
 
 struct MixerPanelView: View {
+    let updater: SPUUpdater
+
     @EnvironmentObject private var engine: AudioEngine
     @State private var masterVolume: Double = Double(SystemVolume.getVolume() ?? 0.5)
     @State private var editingMaster = false
@@ -73,6 +76,10 @@ struct MixerPanelView: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                 Spacer()
+                Button("Обновления") { updater.checkForUpdates() }
+                    .buttonStyle(.plain)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Button("Обратная связь") {
                     NSWorkspace.shared.open(URL(string: "https://github.com/djet00/VolumeMixer/issues/new/choose")!)
                 }

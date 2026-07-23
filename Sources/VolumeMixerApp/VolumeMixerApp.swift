@@ -1,9 +1,17 @@
 import SwiftUI
+import Sparkle
 import VolumeMixerCore
 
 @main
 struct VolumeMixerApp: App {
     @StateObject private var engine: AudioEngine
+
+    // Sparkle: автопроверка обновлений по расписанию + ручная из панели
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     init() {
         let e = AudioEngine()
@@ -13,7 +21,7 @@ struct VolumeMixerApp: App {
 
     var body: some Scene {
         MenuBarExtra("Микшер громкости", systemImage: "slider.vertical.3") {
-            MixerPanelView()
+            MixerPanelView(updater: updaterController.updater)
                 .environmentObject(engine)
         }
         .menuBarExtraStyle(.window)
