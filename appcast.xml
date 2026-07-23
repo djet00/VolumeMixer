@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Микшер громкости</title>
+        <item>
+            <title>Версия 1.1</title>
+            <pubDate>Thu, 23 Jul 2026 07:27:31 +0000</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://github.com/djet00/VolumeMixer/releases/tag/v1.1</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/djet00/VolumeMixer/releases/download/v1.1/VolumeMixer-1.1.dmg" sparkle:edSignature="x1yATtxyAdponRp8v5XB0/NcUGniGY2JmQrVdJxmEg9WEPFISk4e3fEC23zORzlfu2maOpt9MdA3G6Ujub8IDg==" length="2384999" type="application/octet-stream"/>
+        </item>
+    </channel>
+</rss>
