@@ -4,6 +4,7 @@ import VolumeMixerCore
 struct AppRowView: View {
     @EnvironmentObject private var engine: AudioEngine
     let app: AudioApp
+    let isPinned: Bool
 
     @State private var slider: Double = 1
     @State private var level: Float = 0
@@ -19,10 +20,17 @@ struct AppRowView: View {
                         .frame(width: 18, height: 18)
                         .saturation(app.isPlaying ? 1 : 0.4)
                 }
+                if isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
                 Text(app.name)
                     .font(.callout)
                     .lineLimit(1)
                     .foregroundStyle(app.isPlaying ? .primary : .secondary)
+                    .accessibilityLabel(isPinned ? "\(app.name), закреплено" : app.name)
                 Spacer()
                 if engine.tapFailed(for: app) {
                     Text("нет доступа")
@@ -71,5 +79,21 @@ struct AppRowView: View {
         }
         .opacity(engine.isMuted(app) ? 0.55 : 1)
         .onAppear { slider = Double(engine.volume(for: app)) }
+        .contentShape(Rectangle())
+        .contextMenu { pinMenu(includeLimitDisabled: true) }
+        .accessibilityActions { pinMenu(includeLimitDisabled: false) }
+    }
+
+    @ViewBuilder
+    private func pinMenu(includeLimitDisabled: Bool) -> some View {
+        if isPinned {
+            Button("Открепить") { engine.unpin(bundleID: app.bundleID) }
+            Button("Переместить выше") { engine.movePinned(bundleID: app.bundleID, direction: .up) }
+            Button("Переместить ниже") { engine.movePinned(bundleID: app.bundleID, direction: .down) }
+        } else if engine.canPin(app) {
+            Button("Закрепить") { _ = engine.pin(app) }
+        } else if includeLimitDisabled {
+            Button("Закрепить — максимум 6") {}.disabled(true)
+        }
     }
 }
