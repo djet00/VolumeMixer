@@ -19,7 +19,8 @@ TAG="v$VERSION"
 ASSET="VolumeMixer-$VERSION.dmg"
 REPO="djet00/VolumeMixer"
 
-SIGN_UPDATE="${SIGN_UPDATE:-$(command -v sign_update || true)}"
+SIGN_UPDATE="${SIGN_UPDATE:-$HOME/.local/bin/sparkle/sign_update}"
+[[ -x "$SIGN_UPDATE" ]] || SIGN_UPDATE="$(command -v sign_update || true)"
 [[ -x "$SIGN_UPDATE" ]] || { echo "Не найден sign_update (инструменты Sparkle). Задай SIGN_UPDATE=/путь/к/sign_update"; exit 1 }
 
 if git rev-parse "$TAG" >/dev/null 2>&1; then
