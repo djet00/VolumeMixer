@@ -28,12 +28,13 @@ create-dmg \
     --volicon "Resources/AppIcon.icns" \
     --background "Resources/dmg-background.tiff" \
     --window-pos 200 120 \
-    --window-size 700 440 \
-    --icon-size 96 \
+    --window-size 700 468 \
+    `# высота окна = высота фона (440) + заголовок окна (~28), иначе низ фона обрезается` \
+    --icon-size 88 \
     --text-size 12 \
-    --icon "Микшер громкости.app" 170 245 \
+    --icon "Микшер громкости.app" 170 205 \
     --hide-extension "Микшер громкости.app" \
-    --app-drop-link 520 245 \
+    --app-drop-link 520 205 \
     --no-internet-enable \
     "$DMG" "$STAGE"
 

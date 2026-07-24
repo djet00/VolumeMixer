@@ -37,7 +37,7 @@ let purple = NSColor(calibratedRed: 0.45, green: 0.25, blue: 0.85, alpha: 1)
 ctx.setStrokeColor(purple.cgColor)
 ctx.setLineWidth(5 * scale)
 ctx.setLineCap(.round)
-let cy = 195 * scale   // вертикальный центр ряда иконок (снизу)
+let cy = 235 * scale   // вертикальный центр ряда иконок (от низа; 205 от верха)
 let path = CGMutablePath()
 path.move(to: CGPoint(x: 258 * scale, y: cy + 18 * scale))
 path.addCurve(to: CGPoint(x: 345 * scale, y: cy - 8 * scale),
@@ -67,10 +67,13 @@ let steps: [(String, NSFont)] = [
     ("При первом запуске macOS скажет «разработчик не подтверждён» — это норма, разрешается один раз:", smallBold),
     ("Системные настройки → Конфиденциальность и безопасность → прокрутить вниз → «Всё равно открыть».", small),
 ]
+// Рисуем СРАЗУ под иконками, а не у нижнего края: Finder может добавить
+// тулбар и панель пути (~130px), которые обрезают низ фона. Всё важное
+// должно жить в верхних ~330px, ниже — пустой запас под обрез.
 for (i, step) in steps.enumerated() {
     let line = NSAttributedString(string: step.0, attributes: [.font: step.1, .foregroundColor: gray])
     let size = line.size()
-    line.draw(at: NSPoint(x: (W - size.width) / 2, y: (44 - CGFloat(i) * 19) * scale))
+    line.draw(at: NSPoint(x: (W - size.width) / 2, y: (144 - CGFloat(i) * 22) * scale))
 }
 
 NSGraphicsContext.restoreGraphicsState()
