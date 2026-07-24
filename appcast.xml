@@ -9,7 +9,7 @@
             <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <sparkle:releaseNotesLink>https://github.com/djet00/VolumeMixer/releases/tag/v1.1</sparkle:releaseNotesLink>
-            <enclosure url="https://github.com/djet00/VolumeMixer/releases/download/v1.1/VolumeMixer-1.1.dmg" sparkle:edSignature="x1yATtxyAdponRp8v5XB0/NcUGniGY2JmQrVdJxmEg9WEPFISk4e3fEC23zORzlfu2maOpt9MdA3G6Ujub8IDg==" length="2384999" type="application/octet-stream"/>
+            <enclosure url="https://github.com/djet00/VolumeMixer/releases/download/v1.1/VolumeMixer-1.1.dmg" sparkle:edSignature="u6kSHOmck6ZfmS7L3iBiQEcG8Ba5lobI33ac5D7+Hg6P+W/92d36NOGvYq7AuKpvV4nyoJBGA/4oRDKqftatAQ==" length="2422803" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>
