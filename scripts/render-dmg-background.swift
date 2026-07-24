@@ -3,7 +3,7 @@ import AppKit
 // Аргумент: масштаб (1 или 2)
 let scale = CGFloat(Double(CommandLine.arguments.dropFirst().first ?? "1") ?? 1)
 let W: CGFloat = 640 * scale
-let H: CGFloat = 440 * scale
+let H: CGFloat = 480 * scale
 
 let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(W), pixelsHigh: Int(H),
     bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -59,16 +59,20 @@ head.closeSubpath()
 ctx.addPath(head)
 ctx.fillPath()
 
-// Подсказка про первый запуск — мелко внизу
-let small = NSFont.systemFont(ofSize: 11 * scale)
-let gray = NSColor(calibratedWhite: 0.45, alpha: 1)
-let hint1 = NSAttributedString(string: "macOS заблокирует первый запуск — разреши его здесь:",
-    attributes: [.font: small, .foregroundColor: gray])
-let hint2 = NSAttributedString(string: "Системные настройки → Конфиденциальность и безопасность → «Всё равно открыть»",
-    attributes: [.font: small, .foregroundColor: gray])
-let h1 = hint1.size(), h2 = hint2.size()
-hint1.draw(at: NSPoint(x: (W - h1.width) / 2, y: 34 * scale))
-hint2.draw(at: NSPoint(x: (W - h2.width) / 2, y: 16 * scale))
+// Подсказка про первый запуск — конкретные шаги, мелко внизу слева
+// (справа внизу в окне DMG лежит ярлык «Как разрешить запуск»)
+let small = NSFont.systemFont(ofSize: 10.5 * scale)
+let smallBold = NSFont.systemFont(ofSize: 10.5 * scale, weight: .semibold)
+let gray = NSColor(calibratedWhite: 0.42, alpha: 1)
+let steps: [(String, NSFont)] = [
+    ("При первом запуске macOS скажет «разработчик не подтверждён» — это норма, разрешается один раз:", smallBold),
+    ("Системные настройки → Конфиденциальность и безопасность → прокрутить вниз → «Всё равно открыть».", small),
+    ("Подробная инструкция — ярлык «Как разрешить запуск» справа →", small),
+]
+for (i, step) in steps.enumerated() {
+    let line = NSAttributedString(string: step.0, attributes: [.font: step.1, .foregroundColor: gray])
+    line.draw(at: NSPoint(x: 24 * scale, y: (52 - CGFloat(i) * 18) * scale))
+}
 
 NSGraphicsContext.restoreGraphicsState()
 let png = rep.representation(using: .png, properties: [:])!
