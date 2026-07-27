@@ -74,6 +74,42 @@ public final class AudioEngine: ObservableObject {
         AppListLayout.audibleLevel(level: level(for: app), muted: isMuted(app))
     }
 
+    // MARK: - Эквалайзер
+
+    /// Общий эквалайзер: действует на всех, у кого не включён свой.
+    public var globalEQ: EQSettings { settings.globalEQ }
+
+    public func setGlobalEQ(_ eq: EQSettings) {
+        settings.globalEQ = eq
+        applyEQToAll()
+        objectWillChange.send()
+    }
+
+    public func eq(forBundleID bundleID: String) -> EQSettings {
+        settings.eq(for: bundleID)
+    }
+
+    public func setEQ(_ eq: EQSettings, forBundleID bundleID: String) {
+        settings.setEQ(eq, for: bundleID)
+        applyEQ(forBundleID: bundleID)
+        objectWillChange.send()
+    }
+
+    public func eq(for app: AudioApp) -> EQSettings { eq(forBundleID: app.bundleID) }
+
+    public func setEQ(_ eq: EQSettings, for app: AudioApp) { setEQ(eq, forBundleID: app.bundleID) }
+
+    /// Что действует сейчас: свой эквалайзер, общий или ничего.
+    public func eqActivation(forBundleID bundleID: String) -> EQActivation {
+        EQResolution.activation(app: settings.eq(for: bundleID), global: settings.globalEQ)
+    }
+
+    public func eqActivation(for app: AudioApp) -> EQActivation { eqActivation(forBundleID: app.bundleID) }
+
+    public func effectiveEQ(forBundleID bundleID: String) -> EQSettings? {
+        EQResolution.effective(app: settings.eq(for: bundleID), global: settings.globalEQ)
+    }
+
     public func canPin(_ app: AudioApp) -> Bool {
         settings.canPin(bundleID: app.bundleID)
     }
@@ -149,11 +185,27 @@ public final class AudioEngine: ObservableObject {
         let s = settings.settings(for: proc.bundleID)
         let gain = s.muted ? 0 : VolumeCurve.gain(fromSlider: s.volume)
         do {
-            controllers[proc.pid] = try ProcessTapController(process: proc, initialGain: gain)
+            let controller = try ProcessTapController(process: proc, initialGain: gain)
+            controller.setEQ(effectiveEQ(forBundleID: proc.bundleID))
+            controllers[proc.pid] = controller
             NSLog("Микшер: + %@ (pid %d, oid %u)", proc.name, proc.pid, proc.objectID)
         } catch {
             NSLog("Микшер: не удалось создать tap для %@: %@", proc.name, "\(error)")
             permissionGranted = AudioPermission.preflight()
+        }
+    }
+
+    private func applyEQ(forBundleID bundleID: String) {
+        let effective = effectiveEQ(forBundleID: bundleID)
+        for proc in playingProcesses where proc.bundleID == bundleID {
+            controllers[proc.pid]?.setEQ(effective)
+        }
+    }
+
+    /// Общий эквалайзер сменился — пересчитать всем, у кого нет своего.
+    private func applyEQToAll() {
+        for proc in playingProcesses {
+            controllers[proc.pid]?.setEQ(effectiveEQ(forBundleID: proc.bundleID))
         }
     }
 

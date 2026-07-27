@@ -11,6 +11,7 @@ public final class ProcessTapController: @unchecked Sendable {
     private final class MixState: @unchecked Sendable {
         let gainBits: Atomic<UInt32>
         let levelBits = Atomic<UInt32>(Float(0).bitPattern)
+        let eq = EQProcessor()
         init(gain: Float) { gainBits = Atomic<UInt32>(gain.bitPattern) }
     }
 
@@ -23,10 +24,18 @@ public final class ProcessTapController: @unchecked Sendable {
     private let state: MixState
     private var invalidated = false
 
+    /// Частота дискретизации агрегата — нужна для расчёта фильтров эквалайзера.
+    public private(set) var sampleRate: Double = 48_000
+
     public var level: Float { Float(bitPattern: state.levelBits.load(ordering: .relaxed)) }
 
     public func setGain(_ gain: Float) {
         state.gainBits.store(min(max(gain, 0), 1).bitPattern, ordering: .relaxed)
+    }
+
+    /// nil — эквалайзер выключен (сигнал идёт мимо фильтров).
+    public func setEQ(_ settings: EQSettings?) {
+        state.eq.update(settings, sampleRate: sampleRate)
     }
 
     public init(process proc: AudioProcess, initialGain: Float) throws {
@@ -62,28 +71,46 @@ public final class ProcessTapController: @unchecked Sendable {
             var agg = AudioObjectID.unknown
             try checkErr(AudioHardwareCreateAggregateDevice(description as CFDictionary, &agg), "create aggregate")
             aggregateID = agg
+            if let rate = try? aggregateID.readFloat64(kAudioDevicePropertyNominalSampleRate), rate > 0 {
+                sampleRate = rate
+            }
 
-            // 3. IOProc: вход (tap) → выход, с gain и RMS
+            // 3. IOProc: вход (tap) → эквалайзер → выход, с gain и RMS
             let state = self.state
             var procID: AudioDeviceIOProcID?
             let status = AudioDeviceCreateIOProcIDWithBlock(&procID, aggregateID, ioQueue) { _, inInputData, _, outOutputData, _ in
                 let gain = Float(bitPattern: state.gainBits.load(ordering: .relaxed))
+                let eq = state.eq.snapshot()
                 let inABL = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inInputData))
                 let outABL = UnsafeMutableAudioBufferListPointer(outOutputData)
                 var sumSquares: Float = 0
                 var sampleCount = 0
+                var channelBase = 0
                 for i in 0..<min(inABL.count, outABL.count) {
                     let inBuf = inABL[i]
                     let outBuf = outABL[i]
                     guard let src = inBuf.mData?.assumingMemoryBound(to: Float32.self),
                           let dst = outBuf.mData?.assumingMemoryBound(to: Float32.self) else { continue }
                     let n = Int(min(inBuf.mDataByteSize, outBuf.mDataByteSize)) / MemoryLayout<Float32>.size
+                    let channels = max(Int(outBuf.mNumberChannels), 1)
                     for j in 0..<n {
-                        let s = src[j] * gain
-                        dst[j] = s
+                        dst[j] = src[j] * gain
+                    }
+                    if eq.isActive {
+                        state.eq.process(
+                            eq,
+                            buffer: dst,
+                            frameCount: n / channels,
+                            channelsInBuffer: channels,
+                            firstChannel: channelBase
+                        )
+                    }
+                    for j in 0..<n {
+                        let s = dst[j]
                         sumSquares += s * s
                     }
                     sampleCount += n
+                    channelBase += channels
                 }
                 let previous = Float(bitPattern: state.levelBits.load(ordering: .relaxed))
                 let rms = sampleCount > 0 ? (sumSquares / Float(sampleCount)).squareRoot() : 0

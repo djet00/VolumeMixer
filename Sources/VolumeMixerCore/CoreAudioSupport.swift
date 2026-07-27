@@ -73,6 +73,15 @@ extension AudioObjectID {
         return value
     }
 
+    func readFloat64(_ selector: AudioObjectPropertySelector,
+                     scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) throws -> Float64 {
+        var addr = propertyAddress(selector, scope: scope)
+        var value: Float64 = 0
+        var size = UInt32(MemoryLayout<Float64>.size)
+        try checkErr(AudioObjectGetPropertyData(self, &addr, 0, nil, &size, &value), "read \(selector)")
+        return value
+    }
+
     func writeFloat32(_ selector: AudioObjectPropertySelector,
                       scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal,
                       element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain,

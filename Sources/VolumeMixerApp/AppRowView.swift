@@ -8,6 +8,7 @@ struct AppRowView: View {
 
     @State private var slider: Double = 1
     @State private var level: Float = 0
+    @State private var showEQ = false
 
     private let vuTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
@@ -32,6 +33,16 @@ struct AppRowView: View {
                     .foregroundStyle(app.isPlaying ? .primary : .secondary)
                     .accessibilityLabel(isPinned ? "\(app.name), закреплено" : app.name)
                 Spacer()
+                if !engine.tapFailed(for: app) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { showEQ.toggle() }
+                    } label: {
+                        EQBadge(activation: engine.eqActivation(for: app))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Эквалайзер приложения")
+                    .accessibilityLabel("Эквалайзер \(app.name)")
+                }
                 if engine.tapFailed(for: app) {
                     Text("нет доступа")
                         .font(.caption2)
@@ -74,6 +85,21 @@ struct AppRowView: View {
                     .onReceive(vuTimer) { _ in
                         level = engine.level(for: app)
                     }
+                }
+
+                if showEQ {
+                    EqualizerView(
+                        toggleLabel: "Свой эквалайзер",
+                        footnote: { enabled in
+                            if enabled { return "Действует только для «\(app.name)»." }
+                            return engine.globalEQ.enabled
+                                ? "Сейчас действует общий эквалайзер. Включи, чтобы задать свой."
+                                : "Включи, чтобы настроить звук только этого приложения."
+                        },
+                        initial: engine.eq(for: app),
+                        onChange: { engine.setEQ($0, for: app) }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }

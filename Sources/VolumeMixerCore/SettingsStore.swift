@@ -24,6 +24,8 @@ public final class SettingsStore {
     private let key = "appAudioSettings"
     private let pinnedBundleIDsKey = "pinnedBundleIDs"
     private let pinnedMetadataKey = "pinnedMetadata"
+    private let appEQKey = "appEqualizers"
+    private let globalEQKey = "globalEqualizer"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -84,6 +86,34 @@ public final class SettingsStore {
         var meta = metadata()
         meta[bundleID] = PinMetadata(name: name)
         encode(meta, key: pinnedMetadataKey)
+    }
+
+    // MARK: - Эквалайзер
+
+    /// Общий эквалайзер: действует на все приложения, у которых нет своего.
+    public var globalEQ: EQSettings {
+        get { decode(EQSettings.self, key: globalEQKey) ?? EQSettings() }
+        set { encode(newValue, key: globalEQKey) }
+    }
+
+    public func eq(for bundleID: String) -> EQSettings {
+        appEQ()[bundleID] ?? EQSettings()
+    }
+
+    public func setEQ(_ eq: EQSettings, for bundleID: String) {
+        guard !bundleID.isEmpty else { return }
+        var all = appEQ()
+        // Выключённый и нетронутый эквалайзер не храним — не засоряем настройки
+        if !eq.enabled && eq.isFlat {
+            all.removeValue(forKey: bundleID)
+        } else {
+            all[bundleID] = eq
+        }
+        encode(all, key: appEQKey)
+    }
+
+    private func appEQ() -> [String: EQSettings] {
+        decode([String: EQSettings].self, key: appEQKey) ?? [:]
     }
 
     public func settings(for bundleID: String) -> AppAudioSettings {

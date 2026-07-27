@@ -9,6 +9,7 @@ struct MixerPanelView: View {
     @State private var masterVolume: Double = Double(SystemVolume.getVolume() ?? 0.5)
     @State private var editingMaster = false
     @State private var panelOpen = false
+    @State private var showGlobalEQ = false
     @AppStorage("silentSectionCollapsed") private var silentCollapsed = false
 
     private let layoutTimer = Timer.publish(
@@ -76,6 +77,28 @@ struct MixerPanelView: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .frame(width: 36, alignment: .trailing)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { showGlobalEQ.toggle() }
+                } label: {
+                    EQBadge(activation: engine.globalEQ.enabled ? .own : .off)
+                }
+                .buttonStyle(.plain)
+                .help("Общий эквалайзер")
+                .accessibilityLabel("Общий эквалайзер")
+            }
+
+            if showGlobalEQ {
+                EqualizerView(
+                    toggleLabel: "Общий эквалайзер",
+                    footnote: { enabled in
+                        enabled
+                            ? "Действует на все приложения, кроме тех, у кого включён свой."
+                            : "Включи, чтобы настроить звук всех приложений разом."
+                    },
+                    initial: engine.globalEQ,
+                    onChange: { engine.setGlobalEQ($0) }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             HStack(spacing: 12) {
