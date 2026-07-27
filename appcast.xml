@@ -3,13 +3,13 @@
     <channel>
         <title>Микшер громкости</title>
         <item>
-            <title>Версия 1.2</title>
-            <pubDate>Mon, 27 Jul 2026 04:50:56 +0000</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
+            <title>Версия 1.3</title>
+            <pubDate>Mon, 27 Jul 2026 07:35:39 +0000</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>1.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <sparkle:releaseNotesLink>https://github.com/djet00/VolumeMixer/releases/tag/v1.2</sparkle:releaseNotesLink>
-            <enclosure url="https://github.com/djet00/VolumeMixer/releases/download/v1.2/VolumeMixer-1.2.dmg" sparkle:edSignature="yfCYSiLLbAmsX/2cd5GX+G5bUilEDdjBFwNWniEihs4eBV1l74LVUEE3ktKCJG5/pqDau8P895EYBdS46KkJCA==" length="2409041" type="application/octet-stream"/>
+            <sparkle:releaseNotesLink>https://github.com/djet00/VolumeMixer/releases/tag/v1.3</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/djet00/VolumeMixer/releases/download/v1.3/VolumeMixer-1.3.dmg" sparkle:edSignature="vrgQaRrBVYo/SvVjroJReK/7lkqemXhbwj/IT4h2B37hsxNfboN+5hrHen8LyRLn7Q6RUor8/umfflfqbKYzCw==" length="2499370" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>
