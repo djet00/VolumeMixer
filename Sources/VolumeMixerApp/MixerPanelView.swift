@@ -9,6 +9,7 @@ struct MixerPanelView: View {
     @State private var masterVolume: Double = Double(SystemVolume.getVolume() ?? 0.5)
     @State private var editingMaster = false
     @State private var panelOpen = false
+    @AppStorage("silentSectionCollapsed") private var silentCollapsed = false
 
     private let layoutTimer = Timer.publish(
         every: 1.0 / 30.0,
@@ -47,9 +48,15 @@ struct MixerPanelView: View {
                     }
                 }
                 if !engine.sections.silent.isEmpty {
-                    sectionHeader("Молчат")
-                    ForEach(engine.sections.silent) { app in
-                        AppRowView(app: app, isPinned: false)
+                    collapsibleHeader(
+                        "Молчат",
+                        count: engine.sections.silent.count,
+                        collapsed: $silentCollapsed
+                    )
+                    if !silentCollapsed {
+                        ForEach(engine.sections.silent) { app in
+                            AppRowView(app: app, isPinned: false)
+                        }
                     }
                 }
             }
@@ -116,5 +123,29 @@ struct MixerPanelView: View {
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.tertiary)
             .textCase(.uppercase)
+    }
+
+    /// Сворачиваемый заголовок секции: клик — свернуть/развернуть,
+    /// в свёрнутом виде показывает счётчик, состояние переживает перезапуск.
+    private func collapsibleHeader(_ title: String, count: Int, collapsed: Binding<Bool>) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                collapsed.wrappedValue.toggle()
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(collapsed.wrappedValue ? "\(title) (\(count))" : title)
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .rotationEffect(.degrees(collapsed.wrappedValue ? 0 : 90))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.tertiary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(collapsed.wrappedValue ? "\(title), свёрнуто, \(count) — развернуть" : "\(title) — свернуть")
     }
 }
